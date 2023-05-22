@@ -1,4 +1,4 @@
-# Copyright © 2018, Intel Corporation
+# Copyright © 2019, Intel Corporation
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -44,13 +44,13 @@ endfunction(set_metrics_discovery_version)
 #################################################################################
 # clearInputVariables
 #   Clears cached MDAPI input cmake variables. Needed for e.g. the below command scenario:
-#   1. cmake -DMD_PLATFORM=linux -DMD_BUILD_TYPE=release -DMD_ARCH=32 -> MD_ARCH specified to 32
-#   2. cmake -DMD_PLATFORM=linux -DMD_BUILD_TYPE=release              -> default MD_ARCH value should be used,
+#   1. cmake -DCMAKE_SYSTEM_NAME=linux -DCMAKE_BUILD_TYPE=release -DMD_ARCH=32 -> MD_ARCH specified to 32
+#   2. cmake -DCMAKE_SYSTEM_NAME=linux -DCMAKE_BUILD_TYPE=release              -> default MD_ARCH value should be used,
 #                                                                        but without clearing, it will be still MD_ARCH=32
 #################################################################################
 function(clearInputVariables)
-    unset(MD_PLATFORM CACHE)
-    unset(MD_BUILD_TYPE CACHE)
+    unset(CMAKE_SYSTEM_NAME CACHE)
+    unset(CMAKE_BUILD_TYPE CACHE)
     unset(MD_ARCH CACHE)
     unset(MD_LIBDRM_SRC CACHE)
     unset(MD_LINUX_DISTRO CACHE)
@@ -70,41 +70,66 @@ endfunction()
 #################################################################################
 
 if (${CMAKE_VERBOSE_MAKEFILE} STREQUAL ON)
-    message("INFO: Input MD_PLATFORM      = ${MD_PLATFORM}")
-    message("INFO: Input MD_BUILD_TYPE    = ${MD_BUILD_TYPE}")
-    message("INFO: Input MD_ARCH          = ${MD_ARCH}")
-    message("INFO: Input MD_LIBDRM_SRC    = ${MD_LIBDRM_SRC}")
-    message("INFO: Input MD_LINUX_DISTRO  = ${MD_LINUX_DISTRO}")
+    message("INFO: Input CMAKE_SYSTEM_NAME = ${CMAKE_SYSTEM_NAME}")
+    message("INFO: Input CMAKE_BUILD_TYPE  = ${CMAKE_BUILD_TYPE}")
+    message("INFO: Input MD_ARCH           = ${MD_ARCH}")
+    message("INFO: Input MD_LIBDRM_SRC     = ${MD_LIBDRM_SRC}")
+    message("INFO: Input MD_LINUX_DISTRO   = ${MD_LINUX_DISTRO}")
 endif()
 
 # PLATFORM
-if (NOT (MD_PLATFORM AND
-         MD_PLATFORM STREQUAL "linux"))
-    errorExit("ERROR: Specify correct MD_PLATFORM (-DMD_PLATFORM=linux)")
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(PLATFORM "linux")
+    message("-- using PLATFORM = ${PLATFORM}")
+else()
+    errorExit("ERROR: Project isn't targeted for ${CMAKE_SYSTEM_NAME}. Please run CMake on Linux.")
 endif()
-set(PLATFORM ${MD_PLATFORM})
 
 # BUILD_TYPE
-if (NOT (MD_BUILD_TYPE AND
-         MD_BUILD_TYPE STREQUAL "release" OR
-         MD_BUILD_TYPE STREQUAL "release-internal" OR
-         MD_BUILD_TYPE STREQUAL "debug"))
-    errorExit("ERROR: Specify correct MD_BUILD_TYPE (-DMD_BUILD_TYPE=release|release-internal|debug)")
-endif()
-set(BUILD_TYPE ${MD_BUILD_TYPE})
+if (CMAKE_BUILD_TYPE)
+    string (TOLOWER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
+endif ()
 
-# ARCH
-if (NOT (MD_ARCH))
-    set(ARCH "64")
-    message("-- using ARCH = ${ARCH}")
-elseif (MD_ARCH STREQUAL "64" OR
-        MD_ARCH STREQUAL "32")
-    set(ARCH ${MD_ARCH})
+if (NOT (CMAKE_BUILD_TYPE))
+    set(BUILD_TYPE "release")
 else()
-    errorExit("ERROR: Specify correct MD_ARCH (-DMD_ARCH=64|32)")
+    set(BUILD_TYPE ${CMAKE_BUILD_TYPE})
 endif()
 
-if (ARCH STREQUAL "32")
+if (NOT (BUILD_TYPE STREQUAL "release" OR
+         BUILD_TYPE STREQUAL "release-internal" OR
+         BUILD_TYPE STREQUAL "debug"))
+    errorExit("ERROR: Specify correct BUILD_TYPE 'release|release-internal|debug' through -DCMAKE_BUILD_TYPE")
+else()
+    message("-- using BUILD_TYPE = ${BUILD_TYPE}")
+endif()
+
+# HOST ARCH
+if (CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "x86_64") # 64 bits Linux
+    set (HOST_ARCH "64")
+else() # 32 bits Linux
+    set (HOST_ARCH "32")
+endif ()
+
+# TARGET ARCH
+if (MD_ARCH)
+# User defines ARCH through custom variable
+    if (MD_ARCH STREQUAL "32" OR MD_ARCH STREQUAL "64")
+        set(TARGET_ARCH ${MD_ARCH})
+    else()
+        errorExit("ERROR: Specify correct MD_ARCH (-DMD_ARCH=64|32).")
+    endif()
+else()
+# User defines ARCH through compiler flags
+    set(TARGET_ARCH "64") # 64 bits by default
+    if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+        set(TARGET_ARCH "32")
+    endif()
+endif()
+
+message("-- using TARGET_ARCH = ${TARGET_ARCH}")
+
+if(TARGET_ARCH STREQUAL "32")
     message("-- !! Compiling 32bit on 64bit host requires gcc (g++) in multilib version !!")
     message("   e.g. sudo apt-get install gcc-4.8-multilib g++-4.8-multilib")
 endif()
@@ -131,7 +156,10 @@ set(DRM_LIB_PATH drm)
 set(BS_DIR_INSTRUMENTATION ${CMAKE_CURRENT_SOURCE_DIR}/instrumentation)
 set(BS_DIR_INC ${CMAKE_CURRENT_SOURCE_DIR}/inc)
 set(BS_DIR_EXTERNAL ${CMAKE_CURRENT_SOURCE_DIR}/external)
-set(DUMP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/dump/${PLATFORM}${ARCH}/${BUILD_TYPE}/${PROJECT_NAME})
+set(DUMP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/dump/${PLATFORM}${TARGET_ARCH}/${BUILD_TYPE}/${PROJECT_NAME})
+if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set (CMAKE_INSTALL_PREFIX "/usr" CACHE PATH "..." FORCE)
+endif ()
 
 # OUTPUT
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${DUMP_DIR})

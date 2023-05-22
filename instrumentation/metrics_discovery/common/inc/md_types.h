@@ -1,45 +1,45 @@
-/*****************************************************************************\
+/*========================== begin_copyright_notice ============================
 
-    Copyright © 2018, Intel Corporation
+Copyright (C) 2019-2021 Intel Corporation
 
-    Permission is hereby granted, free of charge, to any person obtaining a
-    copy of this software and associated documentation files (the "Software"),
-    to deal in the Software without restriction, including without limitation
-    the rights to use, copy, modify, merge, publish, distribute, sublicense,
-    and/or sell copies of the Software, and to permit persons to whom the
-    Software is furnished to do so, subject to the following conditions:
+SPDX-License-Identifier: MIT
 
-    The above copyright notice and this permission notice shall be included
-    in all copies or substantial portions of the Software.
+============================= end_copyright_notice ===========================*/
 
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-    THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-    IN THE SOFTWARE.
+//     File Name:  md_types.h
 
-    File Name:  md_types.h
+//     Abstract:   C++ Metrics Discovery types header
 
-    Abstract:   C++ Metrics Discovery types header
-
-\*****************************************************************************/
 #pragma once
 
-#include "metrics_discovery_api.h"
+#include "metrics_discovery_internal_api.h"
+#include "md_utils.h"
 
 // Defines
-#define MD_MAX_CONTEXT_TAGS 128  // Should match max count used by Intel driver
+#define MD_MAX_CONTEXT_TAGS              128 // Should match max count used by Intel driver
+#define MD_PLATFORM_MASK_BYTE_ARRAY_SIZE 8
+
+#define MD_BYTE            8
+#define MD_KBYTE           1024
+#define MD_MBYTE           1048576
+#define MD_MHERTZ          1000000
+#define MD_NSEC_PER_SEC    1000000000ULL
+#define MD_INTEL_VENDOR_ID 0x8086
+
+#define MD_ROOT_DEVICE_INDEX 0
 
 using namespace MetricsDiscovery;
 
 namespace MetricsDiscoveryInternal
 {
+    ///////////////////////////////////////////////////////////////////////////////
+    // Forward declarations:                                                     //
+    ///////////////////////////////////////////////////////////////////////////////
+    class CEquation;
 
-    /******************************************************************************/
-    /* OA report types:                                                           */
-    /******************************************************************************/
+    ///////////////////////////////////////////////////////////////////////////////
+    // OA report types:                                                          //
+    ///////////////////////////////////////////////////////////////////////////////
     typedef enum EReportType
     {
         OA_REPORT_TYPE_128B_A13_NOA16 = 0,
@@ -50,24 +50,28 @@ namespace MetricsDiscoveryInternal
         OA_REPORT_TYPE_64B_NOA12,
         OA_REPORT_TYPE_128B_A16_NOA12,
         OA_REPORT_TYPE_64B_NOA12_2,
+        OA_REPORT_TYPE_128B_OAM           = 1 << GTDI_REPORT_TYPE_OAM_SHIFT,
+        OA_REPORT_TYPE_192B_MPEC8LL_NOA16 = 2 << GTDI_REPORT_TYPE_OAM_SHIFT,
+        OA_REPORT_TYPE_128B_MPEC8_NOA16   = 3 << GTDI_REPORT_TYPE_OAM_SHIFT,
         // ...
         OA_REPORT_TYPE_LAST,
     } TReportType;
 
-    /******************************************************************************/
-    /* Stream types:                                                              */
-    /******************************************************************************/
+    ///////////////////////////////////////////////////////////////////////////////
+    // Stream types:                                                             //
+    ///////////////////////////////////////////////////////////////////////////////
     typedef enum EStreamType
     {
         STREAM_TYPE_OA = 0,
         STREAM_TYPE_SYS,
         STREAM_TYPE_BB,
+        STREAM_TYPE_OAM,
         // ...
     } TStreamType;
 
-    /******************************************************************************/
-    /* Override types:                                                            */
-    /******************************************************************************/
+    ///////////////////////////////////////////////////////////////////////////////
+    // Override types:                                                           //
+    ///////////////////////////////////////////////////////////////////////////////
     typedef enum EOverrideType
     {
         OVERRIDE_TYPE_FREQUENCY = 0,
@@ -80,9 +84,9 @@ namespace MetricsDiscoveryInternal
         OVERRIDE_TYPE_LAST,
     } TOverrideType;
 
-    /******************************************************************************/
-    /* Io Measurement Info types:                                                 */
-    /******************************************************************************/
+    ///////////////////////////////////////////////////////////////////////////////
+    // Io Measurement Info types:                                                //
+    ///////////////////////////////////////////////////////////////////////////////
     typedef enum EIoMeasurementInfoType
     {
         IO_MEASUREMENT_INFO_CORE_FREQUENCY_MHZ = 0,
@@ -91,49 +95,54 @@ namespace MetricsDiscoveryInternal
         IO_MEASUREMENT_INFO_SLICE_SHUTDOWN,
         IO_MEASUREMENT_INFO_DATA_OUTSTANDING,
         IO_MEASUREMENT_INFO_REPORT_LOST,
+        IO_MEASUREMENT_INFO_BUFFER_OVERFLOW,
+        IO_MEASUREMENT_INFO_BUFFER_OVERRUN,
+        IO_MEASUREMENT_INFO_COUNTERS_OVERFLOW,
         // ...
         IO_MEASUREMENT_INFO_LAST,
     } TIoMeasurementInfoType;
 
-    /******************************************************************************/
-    /* Context Tag types:                                                         */
-    /******************************************************************************/
+    ///////////////////////////////////////////////////////////////////////////////
+    // Context Tag types:                                                        //
+    ///////////////////////////////////////////////////////////////////////////////
     typedef enum EContextTagType
     {
-        CONTEXT_TAG_TYPE_RENDER,  // Should be in sync with instrumentation INSTR_RENDER_CONTEXT_TAG, same for other entries
+        CONTEXT_TAG_TYPE_RENDER, // Should be in sync with instrumentation INSTR_RENDER_CONTEXT_TAG, same for other entries
         CONTEXT_TAG_TYPE_PRESENT,
+        CONTEXT_TAG_TYPE_INTERNAL,
         // ...
         CONTEXT_TAG_TYPE_LAST,
     } TContextTagType;
 
-    /******************************************************************************/
-    /* Context Tag                                                                */
-    /******************************************************************************/
+    ///////////////////////////////////////////////////////////////////////////////
+    // Context Tag                                                               //
+    ///////////////////////////////////////////////////////////////////////////////
     typedef struct SContextTag
     {
         uint32_t        PID;
         uint32_t        ContextTag;
         TContextTagType ContextTagType;
+        uint32_t        Node;
     } TContextTag;
 
-    /******************************************************************************/
-    /* Get context id tags params:                                                */
-    /******************************************************************************/
+    ///////////////////////////////////////////////////////////////////////////////
+    // Get context id tags params:                                               //
+    ///////////////////////////////////////////////////////////////////////////////
     typedef struct SGetCtxIdTagsParams
     {
         // IN
-        uint32_t PID;                           // Process ID, 0 is global
-        uint32_t Offset;                        // Skip first offset tags
+        uint32_t PID;    // Process ID, 0 is global
+        uint32_t Offset; // Skip first offset tags
         // OUT
-        uint32_t StateChangeCount;              // Increases during context creation / removal
-        uint32_t AvailableTags;                 // All available tag count
-        uint32_t TagCount;                      // Returned tag count
-        TContextTag  Tags[MD_MAX_CONTEXT_TAGS]; // Returned tags
+        uint32_t    StateChangeCount;          // Increases during context creation / removal
+        uint32_t    AvailableTags;             // All available tag count
+        uint32_t    TagCount;                  // Returned tag count
+        TContextTag Tags[MD_MAX_CONTEXT_TAGS]; // Returned tags
     } TGetCtxTagsIdParams;
 
-    /******************************************************************************/
-    /* Same as LARGE_INTEGER, used in metric calculation:                         */
-    /******************************************************************************/
+    ///////////////////////////////////////////////////////////////////////////////
+    // Same as LARGE_INTEGER, used in metric calculation:                        //
+    ///////////////////////////////////////////////////////////////////////////////
     typedef union ULargeInteger
     {
         struct
@@ -143,5 +152,45 @@ namespace MetricsDiscoveryInternal
         } u;
         int64_t QuadPart;
     } TLargeInteger;
-};
 
+    ///////////////////////////////////////////////////////////////////////////////
+    // API versions:                                                             //
+    ///////////////////////////////////////////////////////////////////////////////
+    enum EApiVersion
+    {
+        API_VERSION_1_0 = 0,
+    };
+
+    ///////////////////////////////////////////////////////////////////////////////
+    // Symbol types:                                                             //
+    ///////////////////////////////////////////////////////////////////////////////
+    typedef enum ESymbolType
+    {
+        SYMBOL_TYPE_IMMEDIATE,
+        SYMBOL_TYPE_DETECT,
+    } TSymbolType;
+
+    ///////////////////////////////////////////////////////////////////////////////
+    // Global symbol:                                                            //
+    ///////////////////////////////////////////////////////////////////////////////
+    typedef struct SGlobalSymbol
+    {
+        EApiVersion version;
+        union
+        {
+            TGlobalSymbol_1_0 symbol_1_0;
+        };
+        TSymbolType symbolType;
+    } TGlobalSymbol;
+
+    ///////////////////////////////////////////////////////////////////////////////
+    // Register set params:                                                      //
+    ///////////////////////////////////////////////////////////////////////////////
+    typedef struct SRegisterSetParams
+    {
+        uint32_t    ConfigId;
+        uint32_t    ConfigPriority;
+        TConfigType ConfigType;
+    } TRegisterSetParams;
+
+}; // namespace MetricsDiscoveryInternal

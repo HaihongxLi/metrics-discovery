@@ -1,0 +1,10 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+libdir=@CMAKE_INSTALL_FULL_LIBDIR@
+includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
+
+Name: @LIB_NAME@
+Description: Intel(R) Metrics Discovery Application Programming Interface
+Version: @MD_VERSION@
+
+Libs: -L${libdir} -l@LIB@
+Cflags: -I${includedir}

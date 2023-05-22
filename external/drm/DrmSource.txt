@@ -1,0 +1,30 @@
+https://github.com/intel-gpu/drm-uapi-helper/tree/master/drm-uapi
+
+Base commit:
+https://github.com/intel-gpu/drm-uapi-helper/commit/6884ac0ac534e716e12dff0afd2062830e6bb87b
+
+Author: Ashutosh Dixit <ashutosh.dixit@intel.com>
+Date:   01 Dec 2022 23:20:21 +01:00
+
+Description:
+
+	prelim v2.0-rc16
+	* Possible backward compatability break in return codes associated with the
+	  PXP feature PRELIM_I915_CONTEXT_PARAM_PROTECTED_CONTENT
+	* Other benign changes shown below
+
+	i915_drm.h:
+	* OA backports
+			I915_PARAM_OA_TIMESTAMP_FREQUENCY getparam
+			DG2 OAG formats
+	* PXP backports
+			I915_CONTEXT_PARAM_PROTECTED_CONTENT
+			I915_GEM_CREATE_EXT_PROTECTED_CONTENT
+
+	i915_drm_prelim.h:
+	* PXP
+			PRELIM_I915_CONTEXT_PARAM_PROTECTED_CONTENT
+	* SVM
+			New field vm_id in prelim_drm_i915_gem_vm_prefetch
+
+	Signed-off-by: Ashutosh Dixit <ashutosh.dixit@intel.com>
